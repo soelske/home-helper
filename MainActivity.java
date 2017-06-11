@@ -33,14 +33,17 @@ public class MainActivity extends AppCompatActivity {
     // UI variables
     private EditText editText;
     private ListView listView;
-    private String macAdress = "user";
+    private String macAddress = "user";
+    private String buttonPressed = "add";
 
     // File variables
     private final String path = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + "Homehelper";
     private final File file = new File(path + File.separator + "savedfile.txt");
 
     public ArrayAdapter<String> adapter;
+    public ArrayList<String> showList;
     public ArrayList<String> homeList;
+    public String[] actions = {"added", "cleared all items"};
 
     // variables for permissions
     private boolean permissionCheck = false;
@@ -53,14 +56,18 @@ public class MainActivity extends AppCompatActivity {
         public boolean onNavigationItemSelected(@NonNull MenuItem item) {
             switch (item.getItemId()) {
                 case R.id.navigation_add:
+                    buttonPressed = "add";
                     buttonSave();
                     buttonLoad();
                     return true;
                 case R.id.navigation_delete:
-                    resetButton();
+                    buttonPressed = "delete";
+                    buttonReset();
                     buttonLoad();
                     return true;
                 case R.id.navigation_notifications:
+                    buttonPressed = "notification";
+                    buttonLoad();
                     return true;
             }
             return false;
@@ -78,8 +85,9 @@ public class MainActivity extends AppCompatActivity {
         BottomNavigationView navigation = (BottomNavigationView) findViewById(R.id.navigation);
         navigation.setOnNavigationItemSelectedListener(mOnNavigationItemSelectedListener);
         listView = (ListView) findViewById(R.id.listView);
+        showList = new ArrayList<>();
         homeList = new ArrayList<>();
-        adapter = new ArrayAdapter<String>(this, R.layout.list_item, R.id.lvItem,homeList);
+        adapter = new ArrayAdapter<>(this, R.layout.list_item, R.id.lvItem,showList);
 
         editText = (EditText) findViewById(R.id.editText);
         editText.setOnTouchListener(new View.OnTouchListener() {
@@ -103,7 +111,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        macAdress = IDgenerator.getID();
+        macAddress = IDgenerator.getID();
 
         buttonLoad();
         listView.setAdapter(adapter);
@@ -119,7 +127,10 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if(permissionCheck) {
-            String[] saveText = String.valueOf(editText.getText()).split(System.getProperty("line.separator"));
+            String[] saveText = {""};
+            saveText[0] = String.valueOf(editText.getText())/*.split(System.getProperty("line.separator"))*/;
+            Save(file, saveText, true);
+            saveText[0] = String.valueOf(macAddress + " added item " + editText.getText().toString())/*.split(System.getProperty("line.separator"))*/;
             Save(file, saveText, true);
             Toast.makeText(getApplicationContext(), "saved", Toast.LENGTH_LONG).show();
         }else{
@@ -127,7 +138,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         BackgroundWorker backgroundWorker = new BackgroundWorker(this);
-        backgroundWorker.execute("save", macAdress, editText.getText().toString(), "item");
+        backgroundWorker.execute("save", macAddress, editText.getText().toString(), "item");
+        new BackgroundWorker(this).execute("save", macAddress, macAddress + " added item " + editText.getText().toString(), "notification");
 
         editText.setText("");
     }
@@ -150,20 +162,22 @@ public class MainActivity extends AppCompatActivity {
                 //of onPostExecute(result) method.
                 syncLists(homeList,databaseList);
             }
-        }).execute("load", macAdress, editText.getText().toString(), "item");
+        }).execute("load", macAddress, editText.getText().toString());
     }
 
-    public void resetButton() {
+    public void buttonReset() {
         if(permissionCheck){
             String[] saveText = {""};
+            Save(file, saveText, false);
+            saveText[0] = String.valueOf(macAddress + " cleared all items")/*.split(System.getProperty("line.separator"))*/;
             Save(file, saveText, false);
         }
 
         editText.setText("");
 
         BackgroundWorker backgroundWorker = new BackgroundWorker(this);
-        backgroundWorker.execute("clear", macAdress, editText.getText().toString(), "item");
-
+        backgroundWorker.execute("clear", macAddress, editText.getText().toString(), "item");
+        new BackgroundWorker(this).execute("save", macAddress, macAddress + " cleared all items", "notification");
     }
 
     public void Save(File file, String[] data, boolean append) {
@@ -240,11 +254,18 @@ public class MainActivity extends AppCompatActivity {
 
     private void addToListview(String item) {
         homeList.add(item);
+        if(buttonPressed.equals("notification") && (item.contains(actions[0])||item.contains(actions[1]))){
+            showList.add(item);
+        }
+        else if (buttonPressed.equals("add") && !(item.contains(actions[0])||item.contains(actions[1]))){
+            showList.add(item);
+        }
         adapter.notifyDataSetChanged();
     }
 
     private void clearListview() {
         homeList.clear();
+        showList.clear();
         adapter.notifyDataSetChanged();
     }
 
@@ -253,12 +274,14 @@ public class MainActivity extends AppCompatActivity {
         for (Object item1 : homeList) {
             for (Object item2 : databaseList) {
                 if (item1.equals(item2)) {
+
                     found = true;
                 }
             }
-            if (!found) {
+            if (!found && !(item1.toString().contains(actions[0])||item1.toString().contains(actions[1]))) {
                 BackgroundWorker backgroundWorker = new BackgroundWorker(this);
-                backgroundWorker.execute("save", macAdress, item1.toString(), "item");
+                backgroundWorker.execute("save", macAddress, item1.toString(), "item");
+                new BackgroundWorker(this).execute("save", macAddress, macAddress + " added item " + item1.toString() , "notification");
             }
             found = false;
         }
@@ -271,8 +294,11 @@ public class MainActivity extends AppCompatActivity {
             }
             if (!found) {
                 if(permissionCheck) {
-                    String[] saveText = String.valueOf(item1.toString()).split(System.getProperty("line.separator"));
+
+                    String[] saveText = {""};
+                    saveText[0]= String.valueOf(item1.toString())/*.split(System.getProperty("line.separator"))*/;
                     Save(file, saveText, true);
+
                 }
                 addToListview(item1.toString());
             }
