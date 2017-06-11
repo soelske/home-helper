@@ -38,21 +38,22 @@ public class BackgroundWorker extends AsyncTask<String, Void, String> {
     }
 
     public ArrayList<String> databaseList;
-    private String items = "";
+    private String contents = "";
 
     @Override
     protected String doInBackground(String... params) {
-        String type = params[0];
+        String action = params[0];
         String save_url = "http://soelske.heliohost.org/insert.php";
         String clear_url = "http://soelske.heliohost.org/clear database.php";
         String load_url = "http://soelske.heliohost.org/fetch.php";
         String result="";
         String line="";
 
-        if (type.equals("save")){
+        if (action.equals("save")){
             try {
                 String user_id= params[1];
                 String content = params[2];
+                String type = params[3];
                 URL url = new URL(save_url);
                 HttpURLConnection httpURLConnection = (HttpURLConnection)url.openConnection();
                 httpURLConnection.setRequestMethod("POST");
@@ -61,7 +62,8 @@ public class BackgroundWorker extends AsyncTask<String, Void, String> {
                 OutputStream outputStream = httpURLConnection.getOutputStream();
                 BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(outputStream, "UTF-8"));
                 String post_data = URLEncoder.encode("userid","UTF-8")+"="+URLEncoder.encode(user_id,"UTF-8")+"&"
-                        + URLEncoder.encode("content","UTF-8")+"="+URLEncoder.encode(content,"UTF-8");
+                        + URLEncoder.encode("content","UTF-8")+"="+URLEncoder.encode(content,"UTF-8") +"&"
+                        + URLEncoder.encode("type","UTF-8")+"="+URLEncoder.encode(type,"UTF-8");
                 bufferedWriter.write(post_data);
                 bufferedWriter.flush();
                 bufferedWriter.close();
@@ -82,7 +84,7 @@ public class BackgroundWorker extends AsyncTask<String, Void, String> {
             }
         }
 
-        else if(type.equals("clear")){
+        else if(action.equals("clear")){
             try {
                 URL url = new URL(clear_url);
                 HttpURLConnection httpURLConnection = (HttpURLConnection)url.openConnection();
@@ -108,7 +110,7 @@ public class BackgroundWorker extends AsyncTask<String, Void, String> {
                 e.printStackTrace();
             }
         }
-        else if(type.equals("load")){
+        else if(action.equals("load")){
             try {
                 URL url = new URL(load_url);
                 HttpURLConnection httpURLConnection = (HttpURLConnection)url.openConnection();
@@ -131,7 +133,7 @@ public class BackgroundWorker extends AsyncTask<String, Void, String> {
                 int totalCount = jsonArray.length();
                 for(int i=0; i<totalCount; i++){
                     JSONObject jsonObject = jsonArray.getJSONObject(i);
-                    items += jsonObject.getString("CONTENT")+":";
+                    contents += jsonObject.getString("CONTENT")+"<-->";
                 }
                 return result;
             } catch (MalformedURLException e) {
@@ -152,11 +154,16 @@ public class BackgroundWorker extends AsyncTask<String, Void, String> {
 
     @Override
     protected void onPostExecute(String result) {
+        ArrayList<String> databaseList = new ArrayList<>();
         /*alertDialog.setMessage(result);
         alertDialog.show();*/
-        if(!items.equals("")) {
-            delegate.processFinish(new ArrayList<>(Arrays.asList(items.split(":"))));
-            items = "";
+        if(!contents.equals("")) {
+            databaseList = new ArrayList<>(Arrays.asList(contents.split("<-->")));
+            if(delegate != null) delegate.processFinish(databaseList);
+        }
+        else{
+            databaseList.add(contents);
+            if(delegate != null) delegate.processFinish(databaseList);
         }
     }
 
